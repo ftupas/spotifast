@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spotifast: remove Next up rows from the queue (before / after)</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 0; background: #14161a; color: #e6e6e6; }
+  header, main { max-width: 1280px; margin: 0 auto; padding: 16px 20px; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  h2 { font-size: 16px; margin: 24px 0 8px; }
+  code { background: #232730; padding: 1px 5px; border-radius: 4px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+  .controls fieldset { border: 1px solid #333; border-radius: 6px; padding: 6px 10px; }
+  .controls legend { color: #9aa; padding: 0 4px; }
+  .controls label { margin-right: 10px; }
+  .shot { margin: 8px 0 16px; }
+  .shot img { max-width: 100%; border: 1px solid #333; border-radius: 6px; display: block; }
+  .shot figcaption { color: #9aa; margin-top: 4px; }
+  .note { color: #bbb; }
+  .hidden { display: none; }
+  ul { padding-left: 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Spotifast: Remove from queue for Next up rows</h1>
+  <p class="note">
+    Baseline: <code>main</code> at <code>6a60c30</code>.
+    Candidate: branch <code>remove-next-up-from-queue</code> at <code>550f391</code>.
+    Demo mode (<code>--demo</code>), macOS arm64.
+  </p>
+  <p class="note">
+    Change under review: a row under <b>Next up</b> in the queue panel now offers
+    <b>Remove from queue</b> in its <b>…</b> / right-click menu (before: only rows under
+    <b>Playing next</b> had it). In the Winamp playlist window, <b>REM → Remove selected</b>
+    is enabled when a Next up row is selected.
+  </p>
+</header>
+
+<main>
+  <div class="controls">
+    <fieldset>
+      <legend>Build</legend>
+      <label><input type="radio" name="ver" value="before" checked> Before (main 6a60c30)</label>
+      <label><input type="radio" name="ver" value="after"> After (550f391)</label>
+    </fieldset>
+    <fieldset>
+      <legend>Theme</legend>
+      <label><input type="radio" name="theme" value="dark" checked> Dark</label>
+      <label><input type="radio" name="theme" value="light"> Light</label>
+    </fieldset>
+    <fieldset>
+      <legend>Size</legend>
+      <label><input type="radio" name="size" value="normal" checked> 1280x800</label>
+      <label><input type="radio" name="size" value="narrow"> 1000x720</label>
+    </fieldset>
+  </div>
+
+  <h2>1. Next up row menu (the change)</h2>
+  <p class="note">Right-click on the first Next up row ("Sapien"), menu open. The after build lists <b>Remove from queue</b>; the before build does not.</p>
+  <figure class="shot" data-view="menu">
+    <img alt="Next up row menu">
+    <figcaption></figcaption>
+  </figure>
+
+  <h2>2. Next up row removed (after build only)</h2>
+  <p class="note">Choosing <b>Remove from queue</b> takes out exactly that row: Sapien is gone and the rows below move up.</p>
+  <figure class="shot" data-view="removed">
+    <img alt="Next up row removed">
+    <figcaption></figcaption>
+  </figure>
+
+  <h2>3. Playing next row menu (reference, unchanged)</h2>
+  <p class="note">Right-click on a row under Playing next (Otomo). Both builds show <b>Remove from queue</b> here.</p>
+  <figure class="shot" data-view="queued">
+    <img alt="Playing next row menu">
+    <figcaption></figcaption>
+  </figure>
+
+  <h2>4. Winamp playlist: REM menu with a Next up row selected</h2>
+  <p class="note">The Next up row (Sapien, selected) in the Winamp playlist window with the REM menu open. Before: <b>Remove selected</b> is disabled. After: enabled.</p>
+  <figure class="shot" data-view="winamp">
+    <img alt="Winamp REM menu">
+    <figcaption></figcaption>
+  </figure>
+
+  <h2>How these were captured</h2>
+  <ul>
+    <li>Images are the app's own egui render of its window, written by the demo build's <code>--demo-shot</code> flag. They are not macOS window captures: <code>screencapture</code> failed because this process has no Screen Recording permission, and that grant needs a manual GUI step.</li>
+    <li>The right-click and the menu/REM clicks were scripted through the demo build's pointer hook. That hook is throwaway: it was added to <code>src/entrypoint.rs</code> identically in both worktrees (<code>/tmp/sf-before</code>, <code>/tmp/sf-after</code>), was never committed to either PR branch, and reads a <code>SF_CLICKS</code> environment variable with window-local coordinates.</li>
+    <li>Demo flags: <code>--demo --demo-page home --demo-show queue,playing-next,{dark|light}</code> (<code>winamp,playlist,playing-next</code> for the Winamp view). <code>playing-next</code> seeds the Playing next section and starts local playback, which the removal needs.</li>
+    <li>Normal shots are 2560x1600 (2x of 1280x800). Narrow shots are 2000x1440 (2x of 1000x720). The Winamp shot is 550x580 at 1x.</li>
+  </ul>
+</main>
+
+<script>
+  const captions = {
+    menu: 'Next up row menu, open on Sapien',
+    removed: 'After removing Sapien from Next up',
+    queued: 'Playing next row menu (both builds, dark, normal)',
+    winamp: 'Winamp REM menu, Next up row selected (dark, 1280x800 only)',
+  };
+  const get = (name) => document.querySelector(`input[name="${name}"]:checked`).value;
+
+  function srcFor(view, ver, theme, size) {
+    if (view === 'menu') return `${ver}/nextup-menu-${theme}-${size}.png`;
+    if (view === 'removed') return `after/nextup-removed-${theme}-${size}.png`;
+    if (view === 'queued') return 'before/queued-menu-dark-normal.png';
+    return `${ver}/winamp-rem-nextup.png`;
+  }
+
+  function render() {
+    const ver = get('ver');
+    const theme = get('theme');
+    const size = get('size');
+    document.querySelectorAll('figure.shot').forEach((fig) => {
+      const view = fig.dataset.view;
+      if (view === 'removed' && ver === 'before') {
+        fig.classList.add('hidden');
+        return;
+      }
+      fig.classList.remove('hidden');
+      const src = srcFor(view, ver, theme, size);
+      fig.querySelector('img').src = src;
+      fig.querySelector('figcaption').textContent = `${captions[view]} (${src})`;
+    });
+  }
+  document.querySelectorAll('input[type="radio"]').forEach((el) => el.addEventListener('change', render));
+  render();
+</script>
+</body>
+</html>
